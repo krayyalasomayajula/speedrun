@@ -75,13 +75,27 @@ class ParsingMixin(object):
         
         model_path = model_dict[next(iter(model_dict.keys()))].pop('loadfrom', None)
         model = create_instance(model_dict, self.MODEL_LOCATIONS)
-        
+
+        #TODO: Kalyan: why append module. in model
+        #if model_path is not None:
+        #    print(f"loading model from {model_path}")
+        #    _state_dict = torch.load(model_path)["_model"].state_dict()
+        #    state_dict = {}
+        #    for _key, val in _state_dict.items():
+        #        key = '.'.join(_key.split('.')[1:])
+        #        state_dict[key] = val
+        #    model.load_state_dict(state_dict)
         if model_path is not None:
             print(f"loading model from {model_path}")
             loaded_model = torch.load(model_path)
             loaded_model = loaded_model if isinstance(loaded_model, torch.nn.Module) else loaded_model["_model"]
-            state_dict = loaded_model.state_dict()
+            _state_dict = loaded_model.state_dict()
+            state_dict = {}
+            for key, val in _state_dict.items():
+                #key = '.'.join(_key.split('.')[1:])
+                state_dict[key] = val
             model.load_state_dict(state_dict)
+
         return model
 
     @property
@@ -188,6 +202,8 @@ class InfernoMixin(ParsingMixin):
             # noinspection PyUnresolvedReferences
             self._trainer.register_callback(IncreaseStepCallback(self))
 
+            # If model is split over multiple devices avoid transfer to a single device
+            self._trainer.model_device_transfer = self.model_device_transfer
             self._trainer.to(self.device)
 
         return self._trainer
